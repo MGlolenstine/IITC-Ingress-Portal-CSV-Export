@@ -1,6 +1,6 @@
 // ==UserScript==
 // @id iitc-plugin-ingressportalcsvexport@zetaphor
-// @name IITC Plugin: Ingress Portal CSV Export
+// @name IITC Plugin: Ingress Portal CSV Export - Map Scraper
 // @category Information
 // @version 0.0.1
 // @namespace http://github.com/Zetaphor/IITC-Ingress-Portal-CSV-Export
@@ -17,7 +17,13 @@
 /*global map:false */
 /*global L:false */
 function wrapper() {
+    let maxLat = 85.05;
     let dw = true;
+    let prevMillis = -1;
+    let avgTimer = -1;
+    let tilesPassed = 0;
+    let tilesLeft = 0;
+
     // in case IITC is not available yet, define the base plugin object
     if (typeof window.plugin !== "function") {
         window.plugin = function() {};
@@ -95,12 +101,12 @@ function wrapper() {
     };
 
     self.genStr = function genStr(title, image, lat, lng, portalGuid) {
-        var href = lat + "," + lng;
+        var href = lat + ";" + lng;
         var str;
         str = title;
         str = str.replace(/"/g, "\\\"");
         str = str.replace(";", " ");
-        str = str + ", " + href + ", " + image;
+        str = str + "; " + href + "; " + image;
         if (window.plugin.keys && (typeof window.portals[portalGuid] !== "undefined")) {
             var keyCount =window.plugin.keys.keys[portalGuid] || 0;
             str = str + ";" + keyCount;
@@ -159,7 +165,7 @@ function wrapper() {
     };
 
     self.generateCsvData = function() {
-        var csvData = 'Name, Latitude, Longitude, Image' + "\n";
+        var csvData = 'Name; Latitude; Longitude; Image' + "\n";
         $.each(window.master_portal_list, function(key, value) {
             csvData += (value + "\n");
         });
@@ -229,23 +235,55 @@ function wrapper() {
             let swLng = map.getBounds()._southWest.lng;
             let neLat = map.getBounds()._northEast.lat;
             let neLng = map.getBounds()._northEast.lng;
-            console.log(swLat);
-            console.log(swLng);
             let latS = Math.abs(neLat - swLat);
             let lngS = Math.abs(neLng - swLng);
             let newLat = map.getCenter().lat + latS;
-            let newLng = map.getCenter().lng - lngS;
-            if (newLat > 180) {
-                newLat = 180;
+            let newLng = map.getCenter().lng + lngS;
+            if (newLng > 180) {
+                newLng = -180;
                 if (newLat < -85) {
+                    downloadCSV();
                     alert("finished!");
                     dw = false;
                     return;
                 }
+                map.setView(new L.LatLng(newLat, newLng));
             }
-            map.setView(new L.LatLng(newLat, newLng));
+            map.setView(new L.LatLng(map.getCenter().lat, newLng));
+            //$('#curloc').html(map.getCenter().lng+", "+map.getCenter().lat);
+            //$('#curloc').html("\nlat: "+map.getCenter().lng+"\nlng: "+map.getCenter().lat);
+            $('#curlat').html("lat: "+map.getCenter().lat);
+            $('#curlng').html("lng: "+map.getCenter().lng);
+            tilesLeft--;
+            tilesPassed++;
+            $('#sectLeft').html(tilesLeft);
+            if(prevMillis == -1){
+                prevMillis = Date.now();
+            }else{
+                //$('#timeLeft').html((Date.now()-prevMillis));
+                //new Date(ms).toISOString().slice(11, -1);
+                if(avgTimer == -1){
+                    avgTimer = Date.now()-prevMillis;
+                }else{
+                    avgTimer = avgTimer*tilesPassed + (Date.now()-prevMillis);
+                    avgTimer /= tilesPassed+1;
+                }
+                //$('#timeLeft').html(new Date(avgTimer*tilesLeft).toISOString().slice(11, -1) + "<br>" + avgTimer);
+                let tmp = new Date(avgTimer*tilesLeft);
+                $('#timeLeft').html(tmp.getFullYear() +"/"+tmp.getMonth()+"/"+tmp.getDate()+ " "+ tmp.getHours() + ":" + tmp.getMinutes() + ":" + tmp.getSeconds() + "<br>" + avgTimer*tilesLeft);
+                prevMillis = Date.now();
+            }
         }
     }
+
+    function msToHMS( ms ) {
+        let hours = ms/(1000*3600);
+        let minutes = ms/(1000*60);
+        let seconds = ms/(1000);
+        return( hours+":"+minutes+":"+seconds);
+    }
+
+
 
     self.updateTimer = function() {
         self.updateZoomStatus();
@@ -318,6 +356,9 @@ function wrapper() {
             <p style="margin:0 0 0 5px;">Scraper Status: <span style="color: red;" id="scraperStatus">Stopped</span></p>
             <p id="totalPortals" style="display: none; margin:0 0 0 5px;">Total Portals Scraped: <span id="totalScrapedPortals">0</span></p>
             <p style="margin:5px 0 0 5px;">Auto Scraper Status: <span style="color: red;" id="scraping">Stopped</span></p>
+            <p style="margin:5px 0 0 5px;">Current Location: <br><span style="color: yellow;" id="curloc"><span style="color: yellow" id="curlat"></span><br><span style="color: yellow" id="curlng"></span></span></p>
+            <p style="margin:5px 0 0 5px;">Sections Left: <span style="color: yellow;" id="sectLeft">0</span></p>
+            <p style="margin:5px 0 0 5px;">Time Left(WIP): <span style="color: yellow;" id="timeLeft">0</span></p>
 
             <div id="csvControlsBox" style="display: none; margin-top: 5px; padding: 5px 0 5px 5px; border-top: 1px solid #20A8B1;">
                 <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.gen();" title="View the CSV portal data.">View Data</a>
@@ -329,15 +370,28 @@ function wrapper() {
 
         $(csvToolbox).insertAfter('#toolbox');
 
-        window.csvUpdateTimer = window.setInterval(self.updateTimer, 500);
+        window.csvUpdateTimer = window.setInterval(self.updateTimer, 250);
 
         // delete self to ensure init can't be run again
         // map.setView(85, -180);
         map.setZoom(15);
-        map.setView(new L.LatLng(85, -180));
+        map.setView(new L.LatLng(maxLat, -180));
+        console.log(new L.LatLng(maxLat, -180));
+        //$('#curloc').html("\nlat: "+maxLat+"\nlng: -180");
+        $('#curlat').html("lat: "+map.getCenter().lat);
+        $('#curlng').html("lng: "+map.getCenter().lng);
 
+        let swLat = map.getBounds()._southWest.lat;
+        let swLng = map.getBounds()._southWest.lng;
+        let neLat = map.getBounds()._northEast.lat;
+        let neLng = map.getBounds()._northEast.lng;
+        let latS = Math.abs(neLat - swLat);
+        let lngS = Math.abs(neLng - swLng);
+        tilesLeft = Math.floor((maxLat*2/latS)*(180*2/lngS));
+        $('#sectLeft').html(tilesLeft);
         delete self.init;
     };
+
     // IITC plugin setup
     if (window.iitcLoaded && typeof self.setup === "function") {
         self.setup();
