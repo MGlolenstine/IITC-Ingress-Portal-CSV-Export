@@ -239,9 +239,10 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
     };
 
     self.updateTimer = function () {
+        let tmp = $('#innerstatus').find('> span.map > span');
         self.updateZoomStatus();
         if (window.map.getZoom() === 3) {
-            if ($('#innerstatus > span.map > span').html() === 'done') {
+            if (tmp.html() === 'done') {
                 if (df) {
                     moveScanWindow();
                     //checkAreas();
@@ -252,7 +253,7 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
         }
         if (window.portal_scraper_enabled) {
             if (window.map.getZoom() === 15) {
-                if ($('#innerstatus > span.map > span').html() === 'done') {
+                if (tmp.html() === 'done') {
                     if (!window.current_area_scraped) {
                         self.checkPortals(window.portals);
                         window.current_area_scraped = true;
