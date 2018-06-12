@@ -17,6 +17,7 @@
 /*global map:false */
 /*global L:false */
 function wrapper() {
+    let dw = true;
     // in case IITC is not available yet, define the base plugin object
     if (typeof window.plugin !== "function") {
         window.plugin = function() {};
@@ -95,9 +96,9 @@ function wrapper() {
 
     self.genStr = function genStr(title, image, lat, lng, portalGuid) {
         var href = lat + "," + lng;
-        var str= "";
+        var str;
         str = title;
-        str = str.replace(/\"/g, "\\\"");
+        str = str.replace(/"/g, "\\\"");
         str = str.replace(";", " ");
         str = str + ", " + href + ", " + image;
         if (window.plugin.keys && (typeof window.portals[portalGuid] !== "undefined")) {
@@ -111,13 +112,13 @@ function wrapper() {
         var lat = portal._latlng.lat,
             lng = portal._latlng.lng,
             title = portal.options.data.title || "untitled portal";
-            image = portal.options.data.image || ""
+        image = portal.options.data.image || "";
 
         return self.genStr(title, image, lat, lng, portalGuid);
     };
 
     self.addPortalToExportList = function(portalStr, portalGuid) {
-        if (typeof window.master_portal_list[portalGuid] == 'undefined') {
+        if (typeof window.master_portal_list[portalGuid] === 'undefined') {
             window.master_portal_list[portalGuid] = portalStr;
             self.updateTotalScrapedCount()
         }
@@ -187,7 +188,7 @@ function wrapper() {
                         placeholder='Zoom level must be 15 or higher for portal data to load'
                         style="width: 100%; white-space: nowrap;">${csvData}</textarea>
                 </div>
-            </div>
+             </div>
         </form>
         `;
 
@@ -222,6 +223,30 @@ function wrapper() {
         else $('#currentZoomLevel').css('color', 'green');
     };
 
+    function moveWindow(){
+        if(dw) {
+            let swLat = map.getBounds()._southWest.lat;
+            let swLng = map.getBounds()._southWest.lng;
+            let neLat = map.getBounds()._northEast.lat;
+            let neLng = map.getBounds()._northEast.lng;
+            console.log(swLat);
+            console.log(swLng);
+            let latS = Math.abs(neLat - swLat);
+            let lngS = Math.abs(neLng - swLng);
+            let newLat = map.getCenter().lat + latS;
+            let newLng = map.getCenter().lng - lngS;
+            if (newLat > 180) {
+                newLat = 180;
+                if (newLat < -85) {
+                    alert("finished!");
+                    dw = false;
+                    return;
+                }
+            }
+            map.setView(new L.LatLng(newLat, newLng));
+        }
+    }
+
     self.updateTimer = function() {
         self.updateZoomStatus();
         if (window.portal_scraper_enabled) {
@@ -234,6 +259,7 @@ function wrapper() {
                         self.drawRectangle();
                     } else {
                         $('#scraperStatus').html('Area Scraped').css('color', 'green');
+                        moveWindow();
                     }
                 } else {
                     current_area_scraped = false;
@@ -256,6 +282,8 @@ function wrapper() {
             $('#stopScraper').hide();
             $('#csvControlsBox').hide();
             $('#totalPortals').hide();
+            $('#scraping').html('Stopped').css('color', 'red');
+            dw = false;
         } else {
             window.portal_scraper_enabled = true;
             $('#scraperStatus').html('Running').css('color', 'green');
@@ -264,6 +292,8 @@ function wrapper() {
             $('#csvControlsBox').show();
             $('#totalPortals').show();
             self.updateTotalScrapedCount();
+            dw = true;
+            $('#scraping').html('Running').css('color', 'green');
         }
 
     };
@@ -287,11 +317,13 @@ function wrapper() {
 
             <p style="margin:0 0 0 5px;">Scraper Status: <span style="color: red;" id="scraperStatus">Stopped</span></p>
             <p id="totalPortals" style="display: none; margin:0 0 0 5px;">Total Portals Scraped: <span id="totalScrapedPortals">0</span></p>
+            <p style="margin:5px 0 0 5px;">Auto Scraper Status: <span style="color: red;" id="scraping">Stopped</span></p>
 
             <div id="csvControlsBox" style="display: none; margin-top: 5px; padding: 5px 0 5px 5px; border-top: 1px solid #20A8B1;">
                 <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.gen();" title="View the CSV portal data.">View Data</a>
                 <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.downloadCSV();" title="Download the CSV portal data.">Download CSV</a>
             </div>
+
         </div>
         `;
 
@@ -300,6 +332,10 @@ function wrapper() {
         window.csvUpdateTimer = window.setInterval(self.updateTimer, 500);
 
         // delete self to ensure init can't be run again
+        // map.setView(85, -180);
+        map.setZoom(15);
+        map.setView(new L.LatLng(85, -180));
+
         delete self.init;
     };
     // IITC plugin setup
@@ -315,4 +351,4 @@ function wrapper() {
 var script = document.createElement("script");
 script.appendChild(document.createTextNode("(" + wrapper + ")();"));
 (document.body || document.head || document.documentElement)
-.appendChild(script);
+    .appendChild(script);
