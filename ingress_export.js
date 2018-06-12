@@ -15,6 +15,7 @@
 // ==/UserScript==
 /*global $:false */
 /*global map:false */
+
 /*global L:false */
 
 function wrapper() {
@@ -28,11 +29,13 @@ function wrapper() {
 
     // in case IITC is not available yet, define the base plugin object
     if (typeof window.plugin !== "function") {
-        window.plugin = function() {};
+        window.plugin = function () {
+        };
     }
 
     // base context for plugin
-    window.plugin.portal_csv_export = function() {};
+    window.plugin.portal_csv_export = function () {
+    };
     const self = window.plugin.portal_csv_export;
 
     window.master_portal_list = {};
@@ -62,7 +65,7 @@ function wrapper() {
     // return if the portal is within the drawtool objects.
     // Polygon and circles are available, and circles are implemented
     // as round polygons.
-    self.portalInForm = function(layer) {
+    self.portalInForm = function (layer) {
         if (layer instanceof L.Rectangle) {
             return true;
         }
@@ -70,7 +73,7 @@ function wrapper() {
 
     };
 
-    self.portalInGeo = function(layer) {
+    self.portalInGeo = function (layer) {
         if (layer instanceof L.GeodesicPolygon) {
             return true;
         }
@@ -78,10 +81,10 @@ function wrapper() {
 
     };
 
-    self.portalInDrawnItems = function(portal) {
+    self.portalInDrawnItems = function (portal) {
         let c = false;
 
-        window.plugin.drawTools.drawnItems.eachLayer(function(layer) {
+        window.plugin.drawTools.drawnItems.eachLayer(function (layer) {
             if (!(self.portalInForm(layer) || self.portalInGeo(layer))) {
                 return false;
             }
@@ -93,7 +96,7 @@ function wrapper() {
         return c;
     };
 
-    self.inBounds = function(portal) {
+    self.inBounds = function (portal) {
         if (window.plugin.drawTools && window.plugin.drawTools.drawnItems.getLayers().length) {
             return self.portalInDrawnItems(portal);
         } else {
@@ -101,7 +104,10 @@ function wrapper() {
         }
     };
 
-    self.genStr = function genStr(title, image, lat, lng, portalGuid) {
+    self.genStr = function genStr(title, image, latt, lngt, portalGuid) {
+
+        let lat = (latt + "").replace(".", ",");
+        let lng = (lngt+"").replace(".", ",");
         const href = lat + ";" + lng;
         let str;
         str = title;
@@ -124,18 +130,18 @@ function wrapper() {
         return self.genStr(title, image, lat, lng, portalGuid);
     };
 
-    self.addPortalToExportList = function(portalStr, portalGuid) {
+    self.addPortalToExportList = function (portalStr, portalGuid) {
         if (typeof window.master_portal_list[portalGuid] === 'undefined') {
             window.master_portal_list[portalGuid] = portalStr;
             self.updateTotalScrapedCount()
         }
     };
 
-    self.updateTotalScrapedCount = function() {
+    self.updateTotalScrapedCount = function () {
         $('#totalScrapedPortals').html(Object.keys(window.master_portal_list).length);
     };
 
-    self.drawRectangle = function() {
+    self.drawRectangle = function () {
         let bounds = window.map.getBounds();
         bounds = [[bounds._southWest.lat, bounds._southWest.lng], [bounds._northEast.lat, bounds._northEast.lng]];
         L.rectangle(bounds, {color: "#00ff11", weight: 1, opacity: 0.9}).addTo(window.map);
@@ -167,9 +173,9 @@ function wrapper() {
         return obj;
     };
 
-    self.generateCsvData = function() {
+    self.generateCsvData = function () {
         let csvData = 'Name; Latitude; Longitude; Image' + "\n";
-        $.each(window.master_portal_list, function(key, value) {
+        $.each(window.master_portal_list, function (key, value) {
             csvData += (value + "\n");
         });
 
@@ -214,13 +220,13 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
         return self.showDialog(window.master_portal_list);
     };
 
-    self.setZoomLevel = function() {
+    self.setZoomLevel = function () {
         window.map.setZoom(15);
         $('#currentZoomLevel').html('15');
         self.updateZoomStatus();
     };
 
-    self.updateZoomStatus = function() {
+    self.updateZoomStatus = function () {
         const zoomLevel = window.map.getZoom();
         // noinspection JSJQueryEfficiency
         $('#currentZoomLevel').html(window.map.getZoom());
@@ -232,10 +238,17 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
         else $('#currentZoomLevel').css('color', 'green');
     };
 
-    self.updateTimer = function() {
+    self.updateTimer = function () {
         self.updateZoomStatus();
-        if(df){
-            moveScanWindow();
+        if (window.map.getZoom() === 3) {
+            if ($('#innerstatus > span.map > span').html() === 'done') {
+                if (df) {
+                    moveScanWindow();
+                    //checkAreas();
+                    self.checkPortals(window.portals);
+                    //drawRectangle();
+                }
+            }
         }
         if (window.portal_scraper_enabled) {
             if (window.map.getZoom() === 15) {
@@ -247,7 +260,7 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
                         self.drawRectangle();
                     } else {
                         $('#scraperStatus').html('Area Scraped').css('color', 'green');
-                        if(dw){
+                        if (dw) {
                             moveWindow();
                         }
                     }
@@ -259,12 +272,12 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
         }
     };
 
-    self.panMap = function() {
+    self.panMap = function () {
         window.map.getBounds();
         window.map.panTo({lat: 40.974379, lng: -85.624982});
     };
 
-    self.toggleStatus = function() {
+    self.toggleStatus = function () {
         if (window.portal_scraper_enabled) {
             window.portal_scraper_enabled = false;
             $('#scraperStatus').html('Stopped').css('color', 'red');
@@ -288,16 +301,27 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
 
     };
 
-    self.toggleAutoStatus = function(){
+    self.toggleAutoStatus = function () {
         df = !df;
-        if(df){
+        if (df) {
             $('#startAutoScraper').html('Stop');
             $('#scraping').html('Running').css('color', 'green');
-        }else{
+        } else {
             $('#scraping').html('Stopped').css('color', 'red');
             $('#startAutoScraper').html('Start');
         }
     };
+
+    function toggleAutoStatus() {
+        df = !df;
+        if (df) {
+            $('#startAutoScraper').html('Stop');
+            $('#scraping').html('Running').css('color', 'green');
+        } else {
+            $('#scraping').html('Stopped').css('color', 'red');
+            $('#startAutoScraper').html('Start');
+        }
+    }
 
     // setup function called by IITC
     self.setup = function init() {
@@ -306,59 +330,56 @@ style="width: 100%; white-space: nowrap;">${csvData}</textarea>
         $("#toolbox").append(link);
 
         const csvToolbox = `
-<div id="csvToolbox" style="position: relative;">
-<p style="margin: 5px 0 5px 0; text-align: center; font-weight: bold;">Portal CSV Exporter</p>
-<a id="startScraper" style="position: absolute; top: 0; left: 0; margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleStatus();" title="Start the portal data scraper">Start</a>
-<a id="stopScraper" style="position: absolute; top: 0; left: 0; display: none; margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleStatus();" title="Stop the portal data scraper">Stop</a>
+            <div id="csvToolbox" style="position: relative;">
+            <p style="margin: 5px 0 5px 0; text-align: center; font-weight: bold;">Portal CSV Exporter</p>
+            <a id="startScraper" style="position: absolute; top: 0; left: 0; margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleStatus();" title="Start the portal data scraper">Start</a>
+            <a id="stopScraper" style="position: absolute; top: 0; left: 0; display: none; margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleStatus();" title="Stop the portal data scraper">Stop</a>
 
-<div class="zoomControlsBox" style="margin-top: 5px; padding: 5px 0 5px 5px;">
-Current Zoom Level: <span id="currentZoomLevel">0</span>
-<a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.setZoomLevel();" title="Set zoom level to enable portal data download.">Set Zoom Level</a>
-</div>
+            <div class="zoomControlsBox" style="margin-top: 5px; padding: 5px 0 5px 5px;">
+            Current Zoom Level: <span id="currentZoomLevel">0</span>
+            <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.setZoomLevel();" title="Set zoom level to enable portal data download.">Set Zoom Level</a>
+            </div>
 
-<p style="margin:0 0 0 5px;">Scraper Status: <span style="color: red;" id="scraperStatus">Stopped</span></p>
-<p id="totalPortals" style="display: none; margin:0 0 0 5px;">Total Portals Scraped: <span id="totalScrapedPortals">0</span></p>
-<p style="margin:5px 0 0 5px;">Auto Scraper Status: <span style="color: red;" id="scraping">Stopped</span></p>
-<p style="margin:5px 0 0 5px;">Current Location: <br><span style="color: yellow;" id="curloc"><span style="color: yellow" id="curlat"></span><br><span style="color: yellow" id="curlng"></span></span></p>
-<p style="margin:5px 0 0 5px;">Sections Left: <span style="color: yellow;" id="sectLeft">0</span></p>
-<p style="margin:5px 0 0 5px;">Time Left(WIP): <span style="color: yellow;" id="timeLeft">0</span></p>
-<a id="startAutoScraper" style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleAutoStatus();" title="Start automatic portal data scraper">Start</a>
+            <p style="margin:0 0 0 5px;">Scraper Status: <span style="color: red;" id="scraperStatus">Stopped</span></p>
+            <p id="totalPortals" style="display: none; margin:0 0 0 5px;">Total Portals Scraped: <span id="totalScrapedPortals">0</span></p>
+            <p style="margin:5px 0 0 5px;">Auto Scraper Status: <span style="color: red;" id="scraping">Stopped</span></p>
+            <p style="margin:5px 0 0 5px;">Current Location: <br><span style="color: yellow;" id="curloc"><span style="color: yellow" id="curlat"></span><br><span style="color: yellow" id="curlng"></span></span></p>
+            <p style="margin:5px 0 0 5px;">Sections Left: <span style="color: yellow;" id="sectLeft">0</span></p>
+            <p style="margin:5px 0 0 5px;">Time Left(WIP): <span style="color: yellow;" id="timeLeft">0</span></p>
+            <a id="startAutoScraper" style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.toggleAutoStatus();" title="Start automatic portal data scraper">Start</a>
 
-<div id="csvControlsBox" style="display: none; margin-top: 5px; padding: 5px 0 5px 5px; border-top: 1px solid #20A8B1;">
-<a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.gen();" title="View the CSV portal data.">View Data</a>
-<a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.downloadCSV();" title="Download the CSV portal data.">Download CSV</a>
-</div>
+            <div id="csvControlsBox" style="display: none; margin-top: 5px; padding: 5px 0 5px 5px; border-top: 1px solid #20A8B1;">
+            <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.gen();" title="View the CSV portal data.">View Data</a>
+            <a style="margin: 0 5px 0 5px;" onclick="window.plugin.portal_csv_export.downloadCSV();" title="Download the CSV portal data.">Download CSV</a>
+            </div>
 
-</div>
-`;
+            </div>
+        `;
 
         $(csvToolbox).insertAfter('#toolbox');
 
-        window.csvUpdateTimer = window.setInterval(self.updateTimer, 250);
+        window.csvUpdateTimer = window.setInterval(self.updateTimer, 500);
 
         // delete self to ensure init can't be run again
-        // map.setView(85, -180);
-        //map.setZoom(15);
-        //map.setView(new L.LatLng(maxLat, -180));
-        //console.log(new L.LatLng(maxLat, -180));
         map.setZoom(3);
+        //map.setZoom(15);
 
         //$('#curloc').html("\nlat: "+maxLat+"\nlng: -180");
-        $('#curlat').html("lat: "+map.getCenter().lat);
-        $('#curlng').html("lng: "+map.getCenter().lng);
+        $('#curlat').html("lat: " + map.getCenter().lat);
+        $('#curlng').html("lng: " + map.getCenter().lng);
 
         //         console.log(latS+", "+lngS);
         //         console.log(new L.LatLng(maxLat-latS/7.5, -180+lngS/2));
         //         console.log(map.getBounds());
-        setTimeout(function (){
+        setTimeout(function () {
             let swLat = map.getBounds()._southWest.lat;
             let swLng = map.getBounds()._southWest.lng;
             let neLat = map.getBounds()._northEast.lat;
             let neLng = map.getBounds()._northEast.lng;
             let latS = Math.abs(neLat - swLat);
             let lngS = Math.abs(neLng - swLng);
-            map.setView(new L.LatLng(maxLat-latS/4.3, -180+lngS/2));
-            tilesLeft = Math.round((maxLat*2/latS)*(180*2/lngS));
+            map.setView(new L.LatLng(maxLat - latS / 3.97, -180 + lngS / 2));
+            tilesLeft = Math.round((maxLat * 2 / latS) * (180 * 2 / lngS));
             $('#sectLeft').html(tilesLeft);
             delete self.init;
         }, 100);
@@ -370,7 +391,7 @@ Current Zoom Level: <span id="currentZoomLevel">0</span>
 //         delete self.init;
     };
 
-    function moveWindow(){
+    function moveWindow() {
         let swLat = map.getBounds()._southWest.lat;
         let swLng = map.getBounds()._southWest.lng;
         let neLat = map.getBounds()._northEast.lat;
@@ -382,7 +403,7 @@ Current Zoom Level: <span id="currentZoomLevel">0</span>
         if (newLng > 180) {
             newLng = -180;
             if (newLat < -85) {
-                downloadCSV();
+                self.downloadCSV();
                 alert("finished!");
                 dw = false;
                 return;
@@ -392,75 +413,84 @@ Current Zoom Level: <span id="currentZoomLevel">0</span>
         map.setView(new L.LatLng(map.getCenter().lat, newLng));
         //$('#curloc').html(map.getCenter().lng+", "+map.getCenter().lat);
         //$('#curloc').html("\nlat: "+map.getCenter().lng+"\nlng: "+map.getCenter().lat);
-        $('#curlat').html("lat: "+map.getCenter().lat);
-        $('#curlng').html("lng: "+map.getCenter().lng);
+        $('#curlat').html("lat: " + map.getCenter().lat);
+        $('#curlng').html("lng: " + map.getCenter().lng);
         tilesLeft--;
         tilesPassed++;
         $('#sectLeft').html(tilesLeft);
-        if(prevMillis === -1){
+        if (prevMillis === -1) {
             prevMillis = Date.now();
-        }else{
+        } else {
             //$('#timeLeft').html((Date.now()-prevMillis));
             //new Date(ms).toISOString().slice(11, -1);
-            if(avgTimer === -1){
-                avgTimer = Date.now()-prevMillis;
-            }else{
-                avgTimer = avgTimer*tilesPassed + (Date.now()-prevMillis);
-                avgTimer /= tilesPassed+1;
+            if (avgTimer === -1) {
+                avgTimer = Date.now() - prevMillis;
+            } else {
+                avgTimer = avgTimer * tilesPassed + (Date.now() - prevMillis);
+                avgTimer /= tilesPassed + 1;
             }
             //$('#timeLeft').html(new Date(avgTimer*tilesLeft).toISOString().slice(11, -1) + "<br>" + avgTimer);
-            let tmp = new Date(avgTimer*tilesLeft);
-            $('#timeLeft').html(tmp.getFullYear() +"/"+tmp.getMonth()+"/"+tmp.getDate()+ " "+ tmp.getHours() + ":" + tmp.getMinutes() + ":" + tmp.getSeconds() + "<br>" + avgTimer*tilesLeft);
+            let tmp = new Date(avgTimer * tilesLeft);
+            $('#timeLeft').html(tmp.getYear() + "/" + tmp.getMonth() + "/" + tmp.getDate() + " " + tmp.getHours() + ":" + tmp.getMinutes() + ":" + tmp.getSeconds() + "<br>" + avgTimer * tilesLeft);
             prevMillis = Date.now();
         }
     }
 
-    function moveScanWindow(){
+    let over = false;
+
+    function moveScanWindow() {
         let swLat = map.getBounds()._southWest.lat;
         let swLng = map.getBounds()._southWest.lng;
         let neLat = map.getBounds()._northEast.lat;
         let neLng = map.getBounds()._northEast.lng;
         let latS = Math.abs(neLat - swLat);
         let lngS = Math.abs(neLng - swLng);
-        let newLat = map.getCenter().lat + latS;
+        let newLat = map.getCenter().lat - latS;
         let newLng = map.getCenter().lng + lngS;
-        alert(newLng);
-        if (newLng > 180) {
-            newLng = 180-lngS;
+        if (newLng >= 180 && !over) {
+            newLng = 180 - lngS / 2;
+//             console.log("#1: "+newLat+", "+newLng);
+            map.setView(new L.LatLng(map.getCenter().lat, newLng));
+            over = true;
+        } else if (over) {
+            newLng = -180 + lngS / 2;
+            map.setView(new L.LatLng(newLat, newLng));
+            over = false;
             if (newLat < -85) {
-                downloadCSV();
-                alert("finished!");
-                dw = false;
+                self.downloadCSV();
+                console.log("finished!");
+                toggleAutoStatus();
+                map.setView(new L.LatLng(0, 0));
                 return;
             }
-            map.setView(new L.LatLng(newLat, newLng));
+        } else {
+//             console.log("#2: "+newLng);
+            map.setView(new L.LatLng(map.getCenter().lat, newLng));
         }
-        map.setView(new L.LatLng(map.getCenter().lat, newLng));
         //$('#curloc').html(map.getCenter().lng+", "+map.getCenter().lat);
         //$('#curloc').html("\nlat: "+map.getCenter().lng+"\nlng: "+map.getCenter().lat);
-        $('#curlat').html("lat: "+map.getCenter().lat);
-        $('#curlng').html("lng: "+map.getCenter().lng);
+        $('#curlat').html("lat: " + map.getCenter().lat);
+        $('#curlng').html("lng: " + map.getCenter().lng);
         tilesLeft--;
         tilesPassed++;
         $('#sectLeft').html(tilesLeft);
-        if(prevMillis === -1){
+        if (prevMillis === -1) {
             prevMillis = Date.now();
-        }else{
+        } else {
             //$('#timeLeft').html((Date.now()-prevMillis));
             //new Date(ms).toISOString().slice(11, -1);
-            if(avgTimer === -1){
-                avgTimer = Date.now()-prevMillis;
-            }else{
-                avgTimer = avgTimer*tilesPassed + (Date.now()-prevMillis);
-                avgTimer /= tilesPassed+1;
+            if (avgTimer === -1) {
+                avgTimer = Date.now() - prevMillis;
+            } else {
+                avgTimer = avgTimer * tilesPassed + (Date.now() - prevMillis);
+                avgTimer /= tilesPassed + 1;
             }
             //$('#timeLeft').html(new Date(avgTimer*tilesLeft).toISOString().slice(11, -1) + "<br>" + avgTimer);
-            let tmp = new Date(avgTimer*tilesLeft);
-            $('#timeLeft').html(tmp.getFullYear() +"/"+tmp.getMonth()+"/"+tmp.getDate()+ " "+ tmp.getHours() + ":" + tmp.getMinutes() + ":" + tmp.getSeconds() + "<br>" + avgTimer*tilesLeft);
+            let tmp = new Date(avgTimer * tilesLeft);
+            $('#timeLeft').html(tmp.getFullYear() + "/" + tmp.getMonth() + "/" + tmp.getDate() + " " + tmp.getHours() + ":" + tmp.getMinutes() + ":" + tmp.getSeconds() + "<br>" + avgTimer * tilesLeft);
             prevMillis = Date.now();
         }
     }
-
 
     // IITC plugin setup
     if (window.iitcLoaded && typeof self.setup === "function") {
@@ -471,6 +501,7 @@ Current Zoom Level: <span id="currentZoomLevel">0</span>
         window.bootPlugins = [self.setup];
     }
 }
+
 // inject plugin into page
 const script = document.createElement("script");
 script.appendChild(document.createTextNode("(" + wrapper + ")();"));
